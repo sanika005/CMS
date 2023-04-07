@@ -10,7 +10,7 @@ class UserModel(models.Model):
         return self.username
 
 class PostModel(models.Model):
-    user_id = models.ForeignKey("UserModel",on_delete=models.CASCADE)
+    user = models.ForeignKey("UserModel",on_delete=models.CASCADE)
     title = models.CharField(max_length=255)
     description = models.CharField(max_length=1000)
     content = models.TextField()
@@ -21,12 +21,12 @@ class PostModel(models.Model):
         return self.title
 
 class LikeModel(models.Model):
-    user_id = models.ForeignKey(UserModel,on_delete=models.CASCADE)
-    post_id = models.ForeignKey(PostModel,on_delete=models.CASCADE)
+    user = models.ForeignKey(UserModel,on_delete=models.CASCADE)
+    post = models.ForeignKey(PostModel,on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('post_id','user_id')
 
     def __str__(self):
-        return f'{self.user_id} likes {self.post_id}'
+        return f'{self.user} likes {self.post}'

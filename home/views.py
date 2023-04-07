@@ -32,17 +32,18 @@ def create_user(request):
     
 def read_user(request,pk):
     if request.method == 'GET':
-        specific_user_data = UserModel.objects.get(pk=pk)
+        specific_user_data = UserModel.objects.get(id=pk)
         req = json.load(request)
-        if int(req['user_id']) == int(specific_user_data):
-            print(specific_user_data)
+        if int(req['user_id']) == int(specific_user_data.id):
             retrieved_data = {
                 "id":specific_user_data.id,
                 "username":specific_user_data.username,
                 "email":specific_user_data.email,
                 "password":specific_user_data.password,
             }
-        return JsonResponse({"status":"success","retrieved_data":retrieved_data,"message":f"Corresponsing data for id:{pk}"},status=200)
+            return JsonResponse({"status":"success","retrieved_data":retrieved_data,"message":f"Corresponsing data for id:{pk}"},status=200)
+        else:
+            return JsonResponse({"status":"Fail","message":"Unauthorized"}, status=401)
     else:
         return JsonResponse({"status":"Fail","message":"Bad request"}, status=400)
 
@@ -102,11 +103,11 @@ def create_post(request):
         content = req["content"]
         creation_date = req["creation_date"]
         is_public = req["is_public"]
-        post = PostModel(user_id_id=user_id,title=title,description=description,content=content,creation_date=creation_date,is_public=is_public)
+        post = PostModel(user_id=user_id,title=title,description=description,content=content,creation_date=creation_date,is_public=is_public)
         post.save()
         saved_data = {
             "id":post.id,
-            "user_id":post.user_id_id,
+            "user_id":post.user_id,
             "title":post.title,
             "description":post.description,
             "content":post.content,
@@ -123,7 +124,7 @@ def read_post(request,pk):
     if specific_user_data[0]['is_public']==True:
         result=specific_user_data[0]
     else:
-        if int(req['user_id']) == int(specific_user_data[0]['user_id_id']):
+        if int(req['user_id']) == int(specific_user_data[0]['user_id']):
             result=specific_user_data[0]
             return JsonResponse({"status":"success","payload":result,"message":"Post read successfully"},status=200)
         else:
@@ -139,11 +140,9 @@ def update_post(request, pk):
         except:
             return JsonResponse({"status":"Post not found","status":404})
         
-        if int(req['user_id']) == int(specific_post_data.user_id_id):
+        if int(req['user_id']) == int(specific_post_data.user_id):
             try:
-
-                print("uhddbnngdgnb",specific_post_data)
-                specific_post_data.user_id_id = req.get("user_id",specific_post_data.user_id_id)
+                specific_post_data.user_id = req.get("user_id",specific_post_data.user_id)
                 specific_post_data.title = req.get("title",specific_post_data.title)
                 specific_post_data.description = req.get("description",specific_post_data.description)
                 specific_post_data.content = req.get("content",specific_post_data.content)
@@ -171,9 +170,8 @@ def delete_post(request, pk):
         return JsonResponse({"status":"Post not found"},status=404)
     
     if request.method == "DELETE":
-        # try:
         req = json.load(request)
-        if int(req['user_id']) == int(specific_post_data.id):
+        if int(req['user_id']) == int(specific_post_data.user_id):
             specific_post_data.delete()
             return JsonResponse({"status":"success","message":"Post deleted successfully"},status=200)
         else:
@@ -187,12 +185,12 @@ def list_post(request):
         posts = PostModel.objects.all().filter(is_public=True).values('id','title')
         req = json.load(request)
         for i in posts:
-            likes = LikeModel.objects.filter(post_id_id=i['id']).count()
+            likes = LikeModel.objects.filter(post_id=i['id']).count()
             i['likes']=likes
             result.append(i)
-        posts = PostModel.objects.all().filter(is_public=False,user_id_id=req['user_id']).values('id','title')
+        posts = PostModel.objects.all().filter(is_public=False,user_id=req['user_id']).values('id','title')
         for i in posts:
-            likes = LikeModel.objects.filter(post_id_id=i['id']).count()
+            likes = LikeModel.objects.filter(post_id=i['id']).count()
             i['likes']=likes
             result.append(i)
         return JsonResponse({"status":"success","payload":result}, status=200)
@@ -206,12 +204,12 @@ def create_like(request):
         req = json.load(request)
         user_id = req["user_id"]
         post_id = req["post_id"]
-        like = LikeModel(user_id_id=user_id,post_id_id=post_id)
+        like = LikeModel(user_id=user_id,post_id=post_id)
         like.save()
         saved_data = {
             "id":like.id,
-            "user_id":like.user_id_id,
-            "post_id":like.post_id_id
+            "user_id":like.user_id,
+            "post_id":like.post_id
         }
         return JsonResponse({"status":"success","payload":saved_data,"message":"Like saved successfully"},status=200)
     else:
@@ -221,8 +219,8 @@ def create_like(request):
 def read_like(request,pk):
     specific_like_data = LikeModel.objects.filter(pk=pk).values()
     req = json.load(request)
-    post_data = PostModel.objects.filter(id=specific_like_data[0]['post_id_id'])
-    user_data = UserModel.objects.filter(id=specific_like_data[0]['user_id_id'])
+    post_data = PostModel.objects.filter(id=specific_like_data[0]['post_id'])
+    user_data = UserModel.objects.filter(id=specific_like_data[0]['user_id'])
 
     if post_data.is_public==True:
         result = {
@@ -246,18 +244,16 @@ def update_like(request,pk):
     if request.method == "PUT":
         try:
             specific_like_data = LikeModel.objects.get(pk=pk)
-            specific_post_data = PostModel.objects.filter(pk=specific_like_data.post_id_id)
+            specific_post_data = PostModel.objects.filter(id=specific_like_data.post_id).values()
         except:
             return JsonResponse({"status":"Like not found","status":404})
-        
-        if int(req['user_id']) == int(specific_like_data.user_id_id):
+        if int(req['user_id']) == int(specific_like_data.user_id):
             try:
-                print("uhddbnngdgnb",specific_like_data)
-                specific_like_data.post_id_id = req.get("user_id",specific_like_data.post_id_id)
+                specific_like_data.post_id = req.get("post_id",specific_like_data.post_id)
                 specific_like_data.save()
                 updated_data = {
                     "id":specific_like_data.id,
-                    "post_title":specific_post_data.title,
+                    "post_title":specific_post_data[0]['title'],
                 }
                 return JsonResponse({"status":"success","updated_data":updated_data},status=200)
             except json.decoder.JSONDecodeError:
@@ -275,7 +271,7 @@ def delete_like(request,pk):
     if request.method == "DELETE":
         # try:
         req = json.load(request)
-        if int(req['user_id']) == int(specific_like_data.user_id_id):
+        if int(req['user_id']) == int(specific_like_data.user_id):
             specific_like_data.delete()
             return JsonResponse({"status":"success","message":"Like deleted successfully"},status=200)
         else:
